@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="تطبيق طقس متقدم مع توقعات دقيقة وخرائط تفاعلية">
+    <meta name="theme-color" content="#203a43">
+    <title>طقس العالم - Weather App | تطبيق طقس متكامل</title>
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- طبقة السماء للتأثيرات الديناميكية -->
+    <div class="sky-layer" id="skyLayer"></div>
+
+    <!-- مؤشر التحميل -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-cloud-sun"></i>
+            <p>جاري تحميل بيانات الطقس...</p>
+        </div>
+    </div>
+
+    <div class="glass-container">
+        <!-- رأس الصفحة -->
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-cloud-sun"></i>
+                <span>طقس العالم</span>
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="ابحث عن مدينة...">
+                <button id="searchBtn">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button id="gpsBtn" title="موقعي الحالي">
+                    <i class="fas fa-location-dot"></i>
+                </button>
+            </div>
+            <div class="controls">
+                <button id="unitToggle" title="تبديل وحدة القياس">
+                    <i class="fas fa-temperature-high"></i>
+                    <span id="unitSymbol">°C</span>
+                </button>
+                <button id="shareBtn" title="مشاركة الطقس">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button id="notificationsBtn" title="تفعيل الإشعارات">
+                    <i class="fas fa-bell"></i>
+                </button>
+                <button id="themeToggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="langToggle">عربي</button>
+                <button id="favoritesBtn">
+                    <i class="fas fa-star"></i>
+                </button>
+                <button id="refreshBtn" title="تحديث البيانات">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- لوحة المفضلة -->
+        <div id="favoritesPanel" class="favorites-panel" style="display: none;">
+            <div class="favorites-header">
+                <h3><i class="fas fa-star"></i> المدن المفضلة</h3>
+                <button id="closeFavs" class="close-btn">&times;</button>
+            </div>
+            <div id="favoritesList" class="favorites-list"></div>
+        </div>
+
+        <!-- الطقس الحالي -->
+        <div class="main-weather" id="currentWeather">
+            <div class="weather-content">
+                <div class="city-header">
+                    <h1 class="city-name" id="cityName">القاهرة</h1>
+                    <button id="addFavoriteBtn" class="favorite-star">
+                        <i class="fas fa-star"></i>
+                    </button>
+                </div>
+                <p id="dateTime" class="date-time"></p>
+                <div class="temp-main">
+                    <span id="temperature">--</span>
+                    <span id="tempUnit">°C</span>
+                </div>
+                <div class="weather-desc">
+                    <i id="weatherIcon" class="fas fa-cloud-sun"></i>
+                    <span id="condition"></span>
+                </div>
+                <div id="feelsLike" class="feels-like"></div>
+                <div id="rainChance" class="rain-chance"></div>
+                <div class="weather-tags" id="weatherTags"></div>
+            </div>
+        </div>
+
+        <!-- تفاصيل الطقس السريعة -->
+        <div class="quick-stats">
+            <div class="stat-card">
+                <i class="fas fa-temperature-low"></i>
+                <div>
+                    <div class="stat-label">الصغرى</div>
+                    <div class="stat-value" id="minTemp">--°</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-temperature-high"></i>
+                <div>
+                    <div class="stat-label">العظمى</div>
+                    <div class="stat-value" id="maxTemp">--°</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-compress-alt"></i>
+                <div>
+                    <div class="stat-label">الضغط</div>
+                    <div class="stat-value" id="pressureQuick">-- hPa</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-tint"></i>
+                <div>
+                    <div class="stat-label">الرطوبة</div>
+                    <div class="stat-value" id="humidityQuick">--%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- شبكة التفاصيل الكاملة -->
+        <div class="details-grid">
+            <div class="detail-item">
+                <i class="fas fa-tachometer-alt"></i>
+                <div class="value" id="pressure">--</div>
+                <div class="label">الضغط (hPa)</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-tint"></i>
+                <div class="value" id="humidity">--</div>
+                <div class="label">الرطوبة</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-wind"></i>
+                <div class="value" id="windSpeed">--</div>
+                <div class="label">الرياح كم/س</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-compass"></i>
+                <div class="value" id="windDir">--</div>
+                <div class="label">الاتجاه</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-sun"></i>
+                <div class="value" id="uvIndex">--</div>
+                <div class="label">الأشعة فوق البنفسجية</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-leaf"></i>
+                <div class="value" id="aqi">--</div>
+                <div class="label">جودة الهواء</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-sunrise"></i>
+                <div class="value" id="sunrise">--</div>
+                <div class="label">الشروق</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-sunset"></i>
+                <div class="value" id="sunset">--</div>
+                <div class="label">الغروب</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-eye"></i>
+                <div class="value" id="visibility">--</div>
+                <div class="label">الرؤية (كم)</div>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-cloud-sun"></i>
+                <div class="value" id="clouds">--</div>
+                <div class="label">الغيوم</div>
+            </div>
+        </div>
+
+        <!-- توقعات كل ساعة - سلايدر -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-clock"></i>
+                <span>توقعات اليوم - كل ساعة</span>
+                <div class="swiper-nav">
+                    <div class="swiper-button-prev-custom"><i class="fas fa-chevron-right"></i></div>
+                    <div class="swiper-button-next-custom"><i class="fas fa-chevron-left"></i></div>
+                </div>
+            </div>
+            <div class="swiper hourly-swiper">
+                <div class="swiper-wrapper" id="hourlyContainer"></div>
+            </div>
+        </div>
+
+        <!-- توقعات 7 أيام -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-calendar-week"></i>
+                <span>توقعات 7 أيام</span>
+            </div>
+            <div id="dailyContainer"></div>
+        </div>
+
+        <!-- الرسوم البيانية المتعددة -->
+        <div class="charts-grid">
+            <div class="glass-card chart-card">
+                <div class="section-title">
+                    <i class="fas fa-chart-line"></i>
+                    <span>درجات الحرارة</span>
+                </div>
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="glass-card chart-card">
+                <div class="section-title">
+                    <i class="fas fa-tint"></i>
+                    <span>الرطوبة</span>
+                </div>
+                <canvas id="humidityChart"></canvas>
+            </div>
+            <div class="glass-card chart-card">
+                <div class="section-title">
+                    <i class="fas fa-wind"></i>
+                    <span>سرعة الرياح</span>
+                </div>
+                <canvas id="windChart"></canvas>
+            </div>
+        </div>
+
+        <!-- بوصلة الرياح -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-location-arrow"></i>
+                <span>اتجاه الرياح</span>
+            </div>
+            <div class="compass-wrapper">
+                <div class="compass">
+                    <div class="compass-circle"></div>
+                    <div id="windNeedle" class="compass-needle"></div>
+                    <div class="compass-labels">
+                        <span class="compass-label N">ش</span>
+                        <span class="compass-label NE">ش شرقي</span>
+                        <span class="compass-label E">شرق</span>
+                        <span class="compass-label SE">ج شرقي</span>
+                        <span class="compass-label S">ج</span>
+                        <span class="compass-label SW">ج غربي</span>
+                        <span class="compass-label W">غرب</span>
+                        <span class="compass-label NW">ش غربي</span>
+                    </div>
+                </div>
+                <p id="windDirectionText" class="wind-direction-text"></p>
+                <div class="wind-speed-detail">
+                    <span>سرعة الرياح: <strong id="windSpeedDetail">--</strong> كم/س</span>
+                    <span>هبات: <strong id="windGust">--</strong> كم/س</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- الخريطة التفاعلية -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>خريطة الطقس التفاعلية</span>
+                <div class="map-controls">
+                    <button id="mapLayerTemp" class="map-layer-btn active">درجة الحرارة</button>
+                    <button id="mapLayerClouds" class="map-layer-btn">الغيوم</button>
+                    <button id="mapLayerPrecip" class="map-layer-btn">الهطول</button>
+                </div>
+            </div>
+            <div class="map-container">
+                <div id="weatherMap"></div>
+            </div>
+        </div>
+
+        <!-- مقارنة المدن -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-chart-simple"></i>
+                <span>مقارنة الطقس بين المدن</span>
+                <button id="addCompareBtn" class="compare-add-btn">
+                    <i class="fas fa-plus"></i> إضافة مدينة
+                </button>
+            </div>
+            <div id="compareContainer" class="compare-container">
+                <div class="compare-placeholder">
+                    <i class="fas fa-chart-line"></i>
+                    <p>اضغط على زر "إضافة مدينة" لمقارنة الطقس بين مدن مختلفة</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- تحليلات الطقس -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-chart-pie"></i>
+                <span>تحليلات الطقس المتقدمة</span>
+            </div>
+            <div class="analytics-grid">
+                <div class="analytics-card">
+                    <h4>اتجاهات درجة الحرارة</h4>
+                    <canvas id="trendChart"></canvas>
+                </div>
+                <div class="analytics-card">
+                    <h4>توزيع هطول الأمطار</h4>
+                    <canvas id="precipChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- نصائح الطقس -->
+        <div class="glass-card">
+            <div class="section-title">
+                <i class="fas fa-lightbulb"></i>
+                <span>نصائح الطقس</span>
+            </div>
+            <div id="weatherTips" class="weather-tips"></div>
+        </div>
+    </div>
+
+    <!-- زر العودة للأعلى -->
+    <button id="backToTop" class="back-to-top" style="display: none;">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Custom JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
